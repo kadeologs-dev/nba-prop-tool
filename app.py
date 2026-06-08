@@ -10,6 +10,7 @@ from nba_api.stats.static import teams as nba_teams_static
 import pandas as pd
 import time
 import traceback
+import os
 
 app = Flask(__name__)
 
