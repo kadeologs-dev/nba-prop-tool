@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBA Prop Confluence Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0d1117;
+    --surface2: #161b22;
+    --surface3: #1c2128;
+    --border: #21262d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #f0a500;
+    --accent2: #e05c00;
+    --strong-over: #00e676;
+    --lean-over: #69f0ae;
+    --slight-over: #b9f6ca;
+    --strong-under: #ff1744;
+    --lean-under: #ff5252;
+    --slight-under: #ff8a80;
+    --neutral: #90a4ae;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: linear-gradient(90deg, #0d1117 0%, #12171f 100%);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .logo span {
+    color: var(--muted);
+    -webkit-text-fill-color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 2px;
+    display: block;
+    font-family: 'DM Mono', monospace;
+    margin-top: -4px;
+  }
+
+  .header-badge {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  .header-badge .dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--strong-over);
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 32px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+    border: 1px solid var(--border);
+  }
+
+  .tab {
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+    border: none;
+    background: none;
+  }
+
+  .tab.active {
+    background: var(--surface3);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .tab:hover:not(.active) {
+    color: var(--text);
+  }
+
+  /* Panel */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Top plays grid */
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+
+  .section-sub {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-btn {
+    padding: 7px 18px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .filter-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(240, 165, 0, 0.08);
+  }
+
+  .filter-btn:hover:not(.active) {
+    border-color: var(--muted);
+    color: var(--text);
+  }
+
+  /* Cards grid */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--card-color, var(--neutral));
+    opacity: 0.8;
+  }
+
+  .card:hover {
+    border-color: var(--card-color, var(--accent));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+
+  .player-name {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text);
+  }
+
+  .player-team {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-top: 2px;
+    letter-spacing: 1px;
+  }
+
+  .confidence-badge {
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1.5px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid currentColor;
+    white-space: nowrap;
+  }
+
+  .card-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+
+  .stat-box {
+    text-align: center;
+    flex: 1;
+  }
+
+  .stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 1px;
+    line-height: 1;
+    color: var(--card-color, var(--text));
+  }
+
+  .stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1.5px;
+    margin-top: 3px;
+    text-transform: uppercase;
+  }
+
+  .divider { width: 1px; background: var(--border); }
+
+  .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .prop-tag {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .score-bar {
+    display: flex;
+    gap: 3px;
+  }
+
+  .score-pip {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+
+  .score-pip.filled {
+    background: var(--card-color, var(--accent));
+  }
+
+  /* Modal / Detail panel */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 12, 16, 0.85);
+    z-index: 200;
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open {
+    display: flex;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 32px;
+    position: relative;
+    animation: modalIn 0.2s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-player {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .modal-sub {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 24px;
+  }
+
+  .modal-stats-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .modal-stat {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .modal-stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--accent);
+  }
+
+  .modal-stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1.5px;
+    margin-top: 3px;
+  }
+
+  .confluence-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .factor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .factor {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    border-left: 3px solid var(--border);
+  }
+
+  .factor.pos { border-left-color: var(--strong-over); }
+  .factor.neg { border-left-color: var(--strong-under); }
+  .factor.neu { border-left-color: var(--neutral); }
+
+  /* Matchup analyzer */
+  .matchup-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 32px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-label {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .form-input, .form-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    width: 100px;
+    transition: border-color 0.2s;
+  }
+
+  .form-select { width: 160px; text-transform: none; letter-spacing: 0; }
+
+  .form-input:focus, .form-select:focus {
+    border-color: var(--accent);
+  }
+
+  .analyze-btn {
+    padding: 10px 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 8px;
+    color: #000;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: opacity 0.2s;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .analyze-btn:hover { opacity: 0.85; }
+  .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Loading state */
+  .loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 40px;
+    gap: 20px;
+  }
+
+  .loading-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .loading-bar {
+    width: 300px;
+    height: 3px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .loading-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 3px;
+    animation: loading 2s ease-in-out infinite;
+  }
+
+  @keyframes loading {
+    0%   { width: 0%; margin-left: 0; }
+    50%  { width: 70%; margin-left: 15%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+
+  .loading-text {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 2px;
+    animation: fadeCycle 3s infinite;
+  }
+
+  @keyframes fadeCycle {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  /* Empty / error state */
+  .empty-state {
+    text-align: center;
+    padding: 60px;
+    color: var(--muted);
+  }
+
+  .empty-state h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    CONFLUENCE
+    <span>NBA PROP ANALYZER</span>
+  </div>
+  <div class="header-badge">
+    <span class="dot"></span>
+    LIVE DATA · 2024-25
+  </div>
+</header>
+
+<main>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('top-plays')">TOP PLAYS</button>
+    <button class="tab" onclick="switchTab('matchup')">MATCHUP ANALYZER</button>
+  </div>
+
+  <!-- TOP PLAYS PANEL -->
+  <div class="panel active" id="panel-top-plays">
+    <div class="section-header">
+      <div class="section-title">HIGH CONFLUENCE PLAYS</div>
+      <div class="section-sub">Scored against league baselines</div>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterProp('ALL', this)">ALL PROPS</button>
+      <button class="filter-btn" onclick="filterProp('Points', this)">POINTS</button>
+      <button class="filter-btn" onclick="filterProp('Assists', this)">ASSISTS</button>
+      <button class="filter-btn" onclick="filterProp('Rebounds', this)">REBOUNDS</button>
+      <button class="filter-btn" onclick="filterProp('OVER', this)">OVERS ONLY</button>
+      <button class="filter-btn" onclick="filterProp('UNDER', this)">UNDERS ONLY</button>
+    </div>
+
+    <div id="top-plays-content">
+      <div class="loading-screen">
+        <div class="loading-logo">CONFLUENCE</div>
+        <div class="loading-bar"><div class="loading-fill"></div></div>
+        <div class="loading-text" id="loading-msg">PULLING NBA DATA...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MATCHUP PANEL -->
+  <div class="panel" id="panel-matchup">
+    <div class="section-header">
+      <div class="section-title">MATCHUP ANALYZER</div>
+      <div class="section-sub">Deep dive into a specific game</div>
+    </div>
+
+    <div class="matchup-form">
+      <div class="form-group">
+        <label class="form-label">Team 1 (abbr)</label>
+        <input class="form-input" id="team1-input" placeholder="LAL" maxlength="3">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Team 2 (abbr)</label>
+        <input class="form-input" id="team2-input" placeholder="BOS" maxlength="3">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prop Type</label>
+        <select class="form-select" id="prop-select">
+          <option value="Points">Points</option>
+          <option value="Assists">Assists</option>
+          <option value="Rebounds">Rebounds</option>
+        </select>
+      </div>
+      <button class="analyze-btn" id="analyze-btn" onclick="runMatchup()">ANALYZE</button>
+    </div>
+
+    <div id="matchup-content">
+      <div class="empty-state">
+        <h3>ENTER A MATCHUP ABOVE</h3>
+        <p style="font-size:13px;">Use 3-letter team abbreviations (e.g. LAL, BOS, GSW)</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" id="modal-inner">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+  let allPlays = [];
+  let currentFilter = 'ALL';
+
+  // Load top plays on page load
+  window.addEventListener('load', loadTopPlays);
+
+  async function loadTopPlays() {
+    const msgs = [
+      "PULLING NBA DATA...",
+      "LOADING TEAM STATS...",
+      "CALCULATING CONFLUENCE SCORES...",
+      "RANKING PLAYS..."
+    ];
+    let i = 0;
+    const msgEl = document.getElementById('loading-msg');
+    const interval = setInterval(() => {
+      i = (i + 1) % msgs.length;
+      if (msgEl) msgEl.textContent = msgs[i];
+    }, 2500);
+
+    try {
+      const res = await fetch('/api/top-plays');
+      const json = await res.json();
+      clearInterval(interval);
+      if (json.status === 'ok') {
+        allPlays = json.data;
+        renderCards(allPlays, 'top-plays-content');
+      } else {
+        document.getElementById('top-plays-content').innerHTML = `
+          <div class="empty-state">
+            <h3>ERROR LOADING DATA</h3>
+            <p style="font-size:12px;color:#ff5252">${json.message}</p>
+            <p style="font-size:11px;margin-top:8px;color:#8b949e">Make sure nba_api is installed: pip install flask nba_api pandas</p>
+          </div>`;
+      }
+    } catch (e) {
+      clearInterval(interval);
+      document.getElementById('top-plays-content').innerHTML = `
+        <div class="empty-state">
+          <h3>CANNOT CONNECT</h3>
+          <p style="font-size:12px;color:#ff5252">Make sure the Python app is running.</p>
+        </div>`;
+    }
+  }
+
+  function renderCards(plays, containerId) {
+    const el = document.getElementById(containerId);
+    if (!plays.length) {
+      el.innerHTML = `<div class="empty-state"><h3>NO PLAYS FOUND</h3><p>Try different filters.</p></div>`;
+      return;
+    }
+    el.innerHTML = `<div class="cards-grid">${plays.map(renderCard).join('')}</div>`;
+  }
+
+  function renderCard(p, idx) {
+    const absScore = Math.min(p.abs_score, 7);
+    const pips = Array.from({length: 7}, (_, i) =>
+      `<div class="score-pip ${i < absScore ? 'filled' : ''}"></div>`).join('');
+
+    const avgLabel = p.prop === 'Points' ? 'PTS/G' : p.prop === 'Assists' ? 'AST/G' : 'REB/G';
+    const secStat = p.prop === 'Points' ? `${p.usg}%` : p.prop === 'Assists' ? `${p.ast_pct}%` : `${p.reb_pct}%`;
+    const secLabel = p.prop === 'Points' ? 'USG%' : p.prop === 'Assists' ? 'AST%' : 'REB%';
+
+    return `
+      <div class="card" style="--card-color: ${p.color}" onclick="showDetail(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+        <div class="card-top">
+          <div>
+            <div class="player-name">${p.player}</div>
+            <div class="player-team">${p.team}</div>
+          </div>
+          <div class="confidence-badge" style="color: ${p.color}; border-color: ${p.color}">${p.label}</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-box">
+            <div class="stat-val">${p.avg}</div>
+            <div class="stat-label">${avgLabel}</div>
+          </div>
+          <div class="divider"></div>
+          <div class="stat-box">
+            <div class="stat-val">${secStat}</div>
+            <div class="stat-label">${secLabel}</div>
+          </div>
+          <div class="divider"></div>
+          <div class="stat-box">
+            <div class="stat-val" style="font-size:20px">${p.score > 0 ? '+' : ''}${p.score}</div>
+            <div class="stat-label">CONF SCORE</div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <div class="prop-tag">${p.prop}</div>
+          <div class="score-bar">${pips}</div>
+        </div>
+      </div>`;
+  }
+
+  function showDetail(p) {
+    const avgLabel = p.prop === 'Points' ? 'PTS/G' : p.prop === 'Assists' ? 'AST/G' : 'REB/G';
+    const factors = p.factors.map(f => {
+      const cls = f.startsWith('✅') ? 'pos' : f.startsWith('🛑') || f.startsWith('⚠️') ? 'neg' : 'neu';
+      return `<div class="factor ${cls}">${f}</div>`;
+    }).join('');
+
+    document.getElementById('modal-content').innerHTML = `
+      <div class="modal-player">${p.player}</div>
+      <div class="modal-sub">${p.team} · ${p.prop.toUpperCase()} PROP · <span style="color:${p.color}">${p.label}</span></div>
+      <div class="modal-stats-row">
+        <div class="modal-stat">
+          <div class="modal-stat-val">${p.avg}</div>
+          <div class="modal-stat-label">${avgLabel}</div>
+        </div>
+        <div class="modal-stat">
+          <div class="modal-stat-val">${p.score > 0 ? '+' : ''}${p.score}</div>
+          <div class="modal-stat-label">CONFLUENCE</div>
+        </div>
+        <div class="modal-stat">
+          <div class="modal-stat-val">${p.usg}%</div>
+          <div class="modal-stat-label">USG%</div>
+        </div>
+      </div>
+      <div class="confluence-title">CONFLUENCE FACTORS</div>
+      <div class="factor-list">${factors}</div>
+    `;
+    document.getElementById('modal').classList.add('open');
+  }
+
+  function closeModal(e) {
+    if (e.target.id === 'modal') document.getElementById('modal').classList.remove('open');
+  }
+
+  function closeModalDirect() {
+    document.getElementById('modal').classList.remove('open');
+  }
+
+  function filterProp(type, btn) {
+    currentFilter = type;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    let filtered = allPlays;
+    if (type === 'Points' || type === 'Assists' || type === 'Rebounds') {
+      filtered = allPlays.filter(p => p.prop === type);
+    } else if (type === 'OVER') {
+      filtered = allPlays.filter(p => p.score > 0);
+    } else if (type === 'UNDER') {
+      filtered = allPlays.filter(p => p.score < 0);
+    }
+    renderCards(filtered, 'top-plays-content');
+  }
+
+  async function runMatchup() {
+    const t1 = document.getElementById('team1-input').value.trim();
+    const t2 = document.getElementById('team2-input').value.trim();
+    const prop = document.getElementById('prop-select').value;
+    if (!t1 || !t2) return;
+
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    btn.textContent = 'LOADING...';
+
+    document.getElementById('matchup-content').innerHTML = `
+      <div class="loading-screen">
+        <div class="loading-bar"><div class="loading-fill"></div></div>
+        <div class="loading-text">ANALYZING ${t1.toUpperCase()} VS ${t2.toUpperCase()}...</div>
+      </div>`;
+
+    try {
+      const res = await fetch(`/api/matchup/${t1}/${t2}/${prop}`);
+      const json = await res.json();
+      if (json.status === 'ok') {
+        renderCards(json.data, 'matchup-content');
+      } else {
+        document.getElementById('matchup-content').innerHTML = `
+          <div class="empty-state"><h3>ERROR</h3><p style="color:#ff5252">${json.message}</p></div>`;
+      }
+    } catch(e) {
+      document.getElementById('matchup-content').innerHTML = `
+        <div class="empty-state"><h3>ERROR</h3><p style="color:#ff5252">Request failed.</p></div>`;
+    }
+    btn.disabled = false;
+    btn.textContent = 'ANALYZE';
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById(`panel-${name}`).classList.add('active');
+  }
+</script>
+</body>
+</html>
